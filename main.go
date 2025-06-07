@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -24,6 +25,9 @@ func main() {
 	chViaCep := make(chan string)
 	chBrasilApi := make(chan string)
 
+	ctx := context.Background()
+	context.WithTimeout(ctx, time.Second)
+
 	viaCepRequest := Request{
 		url: viaCepApi,
 		cep: cep,
@@ -35,28 +39,32 @@ func main() {
 		ch:  chBrasilApi,
 	}
 
-	go getCep(viaCepRequest)
-	go getCep(brasilApiRequest)
+	go getCep(ctx, viaCepRequest)
+	go getCep(ctx, brasilApiRequest)
 
 	select {
 	case response := <-chViaCep:
 		fmt.Println("Response from ViaCEP: ", response)
 	case response := <-chBrasilApi:
 		fmt.Println("Response from BrasilApi: ", response)
-	case <-time.After(time.Second):
+	case <-ctx.Done():
 		fmt.Println("Timeout: No response received within 1 second")
 	}
 
 }
 
-func getCep(request Request) error {
+func getCep(ctx context.Context, request Request) error {
 	url := fmt.Sprintf(request.url, request.cep)
-	req, err := http.Get(url)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return err
 	}
-	defer req.Body.Close()
-	jsonByte, err := io.ReadAll(req.Body)
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+	jsonByte, err := io.ReadAll(res.Body)
 	if err != nil {
 		return err
 	}
