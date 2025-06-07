@@ -25,8 +25,8 @@ func main() {
 	chViaCep := make(chan string)
 	chBrasilApi := make(chan string)
 
-	ctx := context.Background()
-	context.WithTimeout(ctx, time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
 
 	viaCepRequest := Request{
 		url: viaCepApi,
